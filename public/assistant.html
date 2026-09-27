@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Assistant — Incident Response Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation / Header -->
+  <header class="top-bar">
+    <div class="brand">
+      <div class="logo-icon">⚡</div>
+      <div class="brand-text">
+        <h1>Incident Response Agent</h1>
+        <span class="subtitle">Powered by Hindsight Biomimetic Memory</span>
+      </div>
+
+      <!-- Navigation Bar Links -->
+      <nav class="nav-links">
+        <a href="/" class="nav-link">🔍 Investigate</a>
+        <a href="/history.html" class="nav-link">📜 Incident History</a>
+        <a href="/analytics.html" class="nav-link">📊 Analytics & Impact</a>
+        <a href="/assistant.html" class="nav-link active">💬 AI Assistant</a>
+      </nav>
+    </div>
+
+    <div class="status-indicator">
+      <span class="status-dot"></span>
+      <span class="status-text">Hindsight Graph Active</span>
+    </div>
+  </header>
+
+  <!-- Main AI Assistant Container -->
+  <main class="page-container">
+    <div class="page-header">
+      <h2>💬 Natural Language Incident Assistant</h2>
+      <span class="badge">Powered by Groq LLM & Hindsight Memory</span>
+    </div>
+
+    <!-- Suggested Sample Prompt Chips -->
+    <div class="prompt-chips">
+      <span class="chip" data-prompt="What is our most common incident?">⚡ What is our most common incident?</span>
+      <span class="chip" data-prompt="How many times has checkout-service failed?">⚡ How many times has checkout-service failed?</span>
+      <span class="chip" data-prompt="List all P1 incidents and their root causes">⚡ List all P1 incidents and their root causes</span>
+      <span class="chip" data-prompt="Summarize database connection pool issues">⚡ Summarize database connection pool issues</span>
+    </div>
+
+    <!-- Dedicated Fullscreen Chat Console -->
+    <div class="assistant-container">
+      <div id="chatMessages" class="chat-messages assistant-chat">
+        <div class="chat-bubble-agent">
+          👋 Hello! I am your AI Incident Assistant. Ask me anything about your platform's incident history, recurring root causes, MTTR metrics, or past resolutions.
+        </div>
+      </div>
+
+      <div class="chat-input-row">
+        <input id="chatInput" type="text" placeholder="Ask a question about your incident history (e.g. 'What is our most common root cause?')..." />
+        <button id="chatSubmit" class="btn-primary" style="width: auto; padding: 0.6rem 1.5rem;">
+          <span class="btn-icon">🚀</span>
+          <span>Ask Agent</span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const chatInput = document.getElementById('chatInput');
+      const chatSubmit = document.getElementById('chatSubmit');
+      const chatMessages = document.getElementById('chatMessages');
+      const chips = document.querySelectorAll('.chip');
+
+      // Click on sample prompt chip
+      chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          chatInput.value = chip.getAttribute('data-prompt');
+          sendQuery();
+        });
+      });
+
+      chatSubmit.addEventListener('click', sendQuery);
+      chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendQuery();
+      });
+
+      async function sendQuery() {
+        const question = chatInput.value.trim();
+        if (!question) return;
+
+        // Append user bubble
+        const userDiv = document.createElement('div');
+        userDiv.className = 'chat-bubble-user';
+        userDiv.textContent = question;
+        chatMessages.appendChild(userDiv);
+
+        chatInput.value = '';
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Append agent thinking bubble
+        const agentDiv = document.createElement('div');
+        agentDiv.className = 'chat-bubble-agent';
+        agentDiv.textContent = '🧠 Recalling Hindsight memory graph & reasoning...';
+        chatMessages.appendChild(agentDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        try {
+          const res = await fetch('/api/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question })
+          });
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          const data = await res.json();
+          agentDiv.textContent = data.answer || 'No answer available.';
+        } catch (err) {
+          console.error('Chat error:', err);
+          agentDiv.textContent = '❌ Failed to reach AI Assistant: ' + err.message;
+        } finally {
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

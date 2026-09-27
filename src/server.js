@@ -73,10 +73,17 @@ ${patternNotice ? `CRITICAL PATTERN NOTE: ${patternNotice}` : ''}`
   }
 });
 
-// Fallback route serving index.html for single-page dashboard
+const fs = require('fs');
+
+// Page routes fallback
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) {
     return next();
+  }
+  const pageFile = req.path === '/' ? 'index.html' : (req.path.endsWith('.html') ? req.path : `${req.path}.html`);
+  const pagePath = path.join(__dirname, '../public', pageFile);
+  if (fs.existsSync(pagePath)) {
+    return res.sendFile(pagePath);
   }
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });

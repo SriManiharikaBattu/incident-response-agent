@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Incident History — Incident Response Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation / Header -->
+  <header class="top-bar">
+    <div class="brand">
+      <div class="logo-icon">⚡</div>
+      <div class="brand-text">
+        <h1>Incident Response Agent</h1>
+        <span class="subtitle">Powered by Hindsight Biomimetic Memory</span>
+      </div>
+
+      <!-- Navigation Bar Links -->
+      <nav class="nav-links">
+        <a href="/" class="nav-link">🔍 Investigate</a>
+        <a href="/history.html" class="nav-link active">📜 Incident History</a>
+        <a href="/analytics.html" class="nav-link">📊 Analytics & Impact</a>
+        <a href="/assistant.html" class="nav-link">💬 AI Assistant</a>
+      </nav>
+    </div>
+
+    <div class="status-indicator">
+      <span class="status-dot"></span>
+      <span class="status-text">Hindsight Graph Active</span>
+    </div>
+  </header>
+
+  <!-- Page Main Container -->
+  <main class="page-container">
+    
+    <div class="page-header">
+      <h2>📜 System Incident History Log</h2>
+      <span id="historyCountBadge" class="badge">0 Incidents Logged</span>
+    </div>
+
+    <!-- Search & Filter Controls Bar -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label for="searchInput">Search Incidents:</label>
+        <input type="text" id="searchInput" placeholder="Search by ID, root cause, or error keyword..." />
+      </div>
+
+      <div class="filter-group" style="max-width: 220px;">
+        <label for="filterService">Service:</label>
+        <select id="filterService">
+          <option value="">All Services</option>
+          <option value="checkout-service">checkout-service</option>
+          <option value="payments-api">payments-api</option>
+          <option value="auth-service">auth-service</option>
+          <option value="user-service">user-service</option>
+          <option value="reporting-worker">reporting-worker</option>
+          <option value="billing-service">billing-service</option>
+          <option value="search-api">search-api</option>
+          <option value="notification-service">notification-service</option>
+          <option value="webhook-ingestion">webhook-ingestion</option>
+          <option value="analytics-pipeline">analytics-pipeline</option>
+        </select>
+      </div>
+
+      <div class="filter-group" style="max-width: 180px;">
+        <label for="filterSeverity">Severity:</label>
+        <select id="filterSeverity">
+          <option value="">All Severities</option>
+          <option value="P1">P1 - Critical</option>
+          <option value="P2">P2 - Major</option>
+          <option value="P3">P3 - Minor</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Incident History Table -->
+    <div class="table-wrapper">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Incident ID</th>
+            <th>Date</th>
+            <th>Service</th>
+            <th>Severity</th>
+            <th>Root Cause</th>
+            <th>Resolved By</th>
+            <th>MTTR</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody">
+          <tr>
+            <td colspan="7" class="text-center">Loading incident history...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const searchInput = document.getElementById('searchInput');
+      const filterService = document.getElementById('filterService');
+      const filterSeverity = document.getElementById('filterSeverity');
+      const historyTableBody = document.getElementById('historyTableBody');
+      const historyCountBadge = document.getElementById('historyCountBadge');
+
+      let allIncidents = [];
+
+      async function fetchIncidents() {
+        try {
+          const res = await fetch('/api/incidents');
+          if (!res.ok) return;
+          const data = await res.json();
+          allIncidents = data.incidents || [];
+          renderFilteredIncidents();
+        } catch (err) {
+          console.error('Failed to fetch incident history:', err);
+          historyTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Failed to load incident history.</td></tr>';
+        }
+      }
+
+      function renderFilteredIncidents() {
+        const query = (searchInput.value || '').toLowerCase().trim();
+        const selectedService = filterService.value;
+        const selectedSeverity = filterSeverity.value;
+
+        const filtered = allIncidents.filter(inc => {
+          const matchesQuery = !query || 
+            (inc.incidentId && inc.incidentId.toLowerCase().includes(query)) ||
+            (inc.rootCause && inc.rootCause.toLowerCase().includes(query)) ||
+            (inc.serviceAffected && inc.serviceAffected.toLowerCase().includes(query)) ||
+            (inc.errorLog && inc.errorLog.toLowerCase().includes(query));
+
+          const matchesService = !selectedService || inc.serviceAffected === selectedService;
+          const matchesSeverity = !selectedSeverity || inc.severity === selectedSeverity;
+
+          return matchesQuery && matchesService && matchesSeverity;
+        });
+
+        historyCountBadge.textContent = `${filtered.length} of ${allIncidents.length} Incidents Shown`;
+
+        if (filtered.length === 0) {
+          historyTableBody.innerHTML = '<tr><td colspan="7" class="text-center">No incidents match the search criteria.</td></tr>';
+          return;
+        }
+
+        historyTableBody.innerHTML = filtered.map(inc => {
+          const dateStr = inc.date ? new Date(inc.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
+          const sevClass = inc.severity === 'P1' ? 'sev-p1' : (inc.severity === 'P2' ? 'sev-p2' : 'sev-p3');
+          return `
+            <tr>
+              <td class="font-mono"><strong>${inc.incidentId || 'N/A'}</strong></td>
+              <td>${dateStr}</td>
+              <td class="font-mono">${inc.serviceAffected || 'N/A'}</td>
+              <td><span class="sev-tag ${sevClass}">${inc.severity || 'P3'}</span></td>
+              <td>${inc.rootCause || 'Under Investigation'}</td>
+              <td>${inc.resolvedBy || 'DevOps Team'}</td>
+              <td class="font-mono">${inc.timeToResolveMinutes ? `${inc.timeToResolveMinutes} m` : '30 m'}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      searchInput.addEventListener('input', renderFilteredIncidents);
+      filterService.addEventListener('change', renderFilteredIncidents);
+      filterSeverity.addEventListener('change', renderFilteredIncidents);
+
+      await fetchIncidents();
+    });
+  </script>
+</body>
+</html>

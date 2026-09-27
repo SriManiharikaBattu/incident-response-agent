@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics & Impact — Incident Response Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation / Header -->
+  <header class="top-bar">
+    <div class="brand">
+      <div class="logo-icon">⚡</div>
+      <div class="brand-text">
+        <h1>Incident Response Agent</h1>
+        <span class="subtitle">Powered by Hindsight Biomimetic Memory</span>
+      </div>
+
+      <!-- Navigation Bar Links -->
+      <nav class="nav-links">
+        <a href="/" class="nav-link">🔍 Investigate</a>
+        <a href="/history.html" class="nav-link">📜 Incident History</a>
+        <a href="/analytics.html" class="nav-link active">📊 Analytics & Impact</a>
+        <a href="/assistant.html" class="nav-link">💬 AI Assistant</a>
+      </nav>
+    </div>
+
+    <div class="status-indicator">
+      <span class="status-dot"></span>
+      <span class="status-text">Hindsight Graph Active</span>
+    </div>
+  </header>
+
+  <!-- Main Analytics Page Container -->
+  <main class="page-container">
+    <div class="page-header">
+      <h2>📊 System Impact & Pattern Analytics</h2>
+      <span class="badge">Hindsight Memory Knowledge Graph</span>
+    </div>
+
+    <!-- Impact Stats Bar Overview -->
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-card">
+        <h3>Total Incidents Resolved</h3>
+        <p id="statTotal">--</p>
+      </div>
+      <div class="stat-card">
+        <h3>Est. Engineer Hours Saved</h3>
+        <p id="statHours">--</p>
+      </div>
+      <div class="stat-card">
+        <h3>Pattern Match Count</h3>
+        <p id="statPatternCount">--</p>
+      </div>
+      <div class="stat-card">
+        <h3>Most Common Issue</h3>
+        <p id="statCommon">--</p>
+      </div>
+    </div>
+
+    <!-- Analytics Breakdown Grid -->
+    <div class="analytics-grid">
+      
+      <!-- Card 1: Recurring Root Causes Breakdown -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>🧠 Recurring Root Causes Breakdown</h2>
+        </div>
+        <div class="table-wrapper">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Root Cause</th>
+                <th>Occurrences</th>
+                <th>Impacted Services</th>
+              </tr>
+            </thead>
+            <tbody id="recurringTableBody">
+              <tr><td colspan="3" class="text-center">Loading analytics data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Card 2: Severity Distribution -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>🚨 Severity Distribution & Response Metrics</h2>
+        </div>
+        <div style="padding: 1rem;">
+          <div class="metrics-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1.5rem;">
+            <div class="metric-card" style="border-color: var(--severity-p1);">
+              <span class="metric-label" style="color: var(--severity-p1);">P1 Critical</span>
+              <span id="p1Count" class="metric-value">--</span>
+            </div>
+            <div class="metric-card" style="border-color: var(--severity-p2);">
+              <span class="metric-label" style="color: var(--severity-p2);">P2 Major</span>
+              <span id="p2Count" class="metric-value">--</span>
+            </div>
+            <div class="metric-card" style="border-color: var(--severity-p3);">
+              <span class="metric-label" style="color: var(--severity-p3);">P3 Minor</span>
+              <span id="p3Count" class="metric-value">--</span>
+            </div>
+          </div>
+
+          <div class="result-card card-accent" style="padding: 1.25rem;">
+            <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--accent-blue);">💡 Hindsight Graph Value Proposition</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+              By retaining facts, resolution steps, and entity linkages from every past incident into Hindsight memory, the agent automatically detects recurring patterns across microservices. Instead of debugging from scratch, engineers leverage verified historical resolutions, cutting MTTR from ~45 minutes to <15 minutes.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        // Fetch stats
+        const resStats = await fetch('/api/stats');
+        if (resStats.ok) {
+          const stats = await resStats.json();
+          document.getElementById('statTotal').textContent = stats.totalIncidents || 0;
+          document.getElementById('statHours').textContent = `${stats.estimatedHoursSaved || 0} hrs`;
+          document.getElementById('statPatternCount').textContent = `${stats.patternMatchedCount || 0} Incidents`;
+          document.getElementById('statCommon').textContent = stats.mostCommonRootCause || 'N/A';
+        }
+
+        // Fetch all incidents for breakdown table
+        const resInc = await fetch('/api/incidents');
+        if (resInc.ok) {
+          const data = await resInc.json();
+          const incidents = data.incidents || [];
+
+          // Calculate severity counts
+          let p1 = 0, p2 = 0, p3 = 0;
+          const rootCausesMap = {};
+
+          incidents.forEach(inc => {
+            if (inc.severity === 'P1') p1++;
+            else if (inc.severity === 'P2') p2++;
+            else p3++;
+
+            const cause = inc.rootCause || 'Unknown';
+            if (!rootCausesMap[cause]) {
+              rootCausesMap[cause] = { count: 0, services: new Set() };
+            }
+            rootCausesMap[cause].count++;
+            if (inc.serviceAffected) rootCausesMap[cause].services.add(inc.serviceAffected);
+          });
+
+          document.getElementById('p1Count').textContent = p1;
+          document.getElementById('p2Count').textContent = p2;
+          document.getElementById('p3Count').textContent = p3;
+
+          // Render recurring breakdown table sorted by count descending
+          const sortedCauses = Object.entries(rootCausesMap).sort((a, b) => b[1].count - a[1].count);
+          const tbody = document.getElementById('recurringTableBody');
+
+          tbody.innerHTML = sortedCauses.map(([cause, info]) => {
+            const servicesStr = Array.from(info.services).join(', ') || 'N/A';
+            return `
+              <tr>
+                <td><strong>${cause}</strong></td>
+                <td class="font-mono text-accent"><strong>${info.count}</strong></td>
+                <td class="font-mono text-muted">${servicesStr}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('Analytics load error:', err);
+      }
+    });
+  </script>
+</body>
+</html>
