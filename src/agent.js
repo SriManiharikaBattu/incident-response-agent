@@ -79,11 +79,25 @@ function detectRootCausePattern(recalledIncidents) {
   for (const [cause, count] of Object.entries(causeCounts)) {
     if (count >= 2) {
       const nth = count + 1; // Nth occurrence including current incident
+      
+      let confidenceScore = 0;
+      if (count === 2) confidenceScore = 60;
+      else if (count === 3) confidenceScore = 75;
+      else if (count === 4) confidenceScore = 85;
+      else if (count >= 5) confidenceScore = Math.min(98, 95 + (count - 5));
+
+      const affectedServices = [...new Set(recalledIncidents
+        .filter(inc => (inc.rootCause || inc.metadata?.rootCause || inc.data?.rootCause) === cause)
+        .map(inc => inc.serviceAffected)
+        .filter(Boolean))];
+
       patternFlag = {
         rootCause: cause,
         matchedCount: count,
         nthOccurrence: nth,
-        flagMessage: `This looks like the ${getOrdinal(nth)} occurrence of ${cause}.`
+        flagMessage: `This looks like the ${getOrdinal(nth)} occurrence of ${cause}.`,
+        confidenceScore,
+        affectedServices
       };
       break;
     }
@@ -199,14 +213,111 @@ ${patternNotice ? `CRITICAL PATTERN NOTE: ${patternNotice}` : ''}`
     severity,
     patternDetected: !!pattern,
     patternNotice: patternNotice || null,
+    patternDetails: pattern || null,
     analysis: finalResponseText,
     recalledIncidentsCount: recalledIncidents.length,
-    recalledIncidents: recalledIncidents
+    recalledIncidents: recalledIncidents,
+    urgentPatternMatch: (!!pattern && severity === 'P1')
   };
+}
+
+async function generateRunbook(rootCause, incidents) {
+  const systemMessage = {
+    role: 'system',
+    content: 'You are an expert DevOps engineer. Generate a markdown runbook with the following sections: Symptoms, Root Cause, Step-by-Step Fix, Prevention Tips.'
+  };
+  const slicedIncidents = (incidents || []).slice(0, 5);
+  const contextText = slicedIncidents.map(i => {
+    const steps = Array.isArray(i.resolutionSteps) ? i.resolutionSteps.join('; ') : (i.resolutionSteps || i.text || '');
+    return `- Service: ${i.serviceAffected || 'N/A'} | Fix: ${steps}`;
+  }).join('\n');
+
+  const userMessage = {
+    role: 'user',
+    content: `Create a runbook for root cause: "${rootCause}".\nBased on past incidents:\n${contextText}`
+  };
+  const response = await callGroqAPI([systemMessage, userMessage]);
+  return response || 'Failed to generate runbook. Please try again.';
+}
+
+async function answerQuery(question, recalledMemories) {
+  const systemMessage = {
+    role: 'system',
+    content: 'You are an AI assistant answering questions about incident history concisely and factually.'
+  };
+  const slicedMemories = (recalledMemories || []).slice(0, 5);
+  const contextSummary = slicedMemories.map(m => {
+    const textSnippet = m.text || m.content || (m.metadata ? `${m.metadata.serviceAffected} - ${m.metadata.rootCause}` : JSON.stringify(m));
+    return `- ${String(textSnippet).slice(0, 200)}`;
+  }).join('\n');
+
+  const userMessage = {
+    role: 'user',
+    content: `Question: ${question}\n\nContext:\n${contextSummary}`
+  };
+  const response = await callGroqAPI([systemMessage, userMessage]);
+  return response || 'I could not answer the question.';
+}
+
+async function streamGroqDiagnosis(messages, res) {
+  try {
+    const response = await axios.post(
+      GROQ_ENDPOINT,
+      {
+        model: MODEL,
+        messages: messages,
+        temperature: 0.2,
+        stream: true
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
+        responseType: 'stream',
+        timeout: 20000
+      }
+    );
+
+    response.data.on('data', chunk => {
+      const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
+      for (const line of lines) {
+        if (line.replace(/^data: /, '') === '[DONE]') {
+          res.write('data: [DONE]\n\n');
+          res.end();
+          return;
+        }
+        if (line.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(line.replace(/^data: /, ''));
+            const content = parsed.choices[0]?.delta?.content;
+            if (content) {
+              res.write(`data: ${JSON.stringify({ content })}\n\n`);
+            }
+          } catch (e) { }
+        }
+      }
+    });
+
+    response.data.on('end', () => {
+      if (!res.writableEnded) {
+        res.write('data: [DONE]\n\n');
+        res.end();
+      }
+    });
+  } catch (err) {
+    console.error('Streaming failed:', err.message);
+    res.write(`data: ${JSON.stringify({ error: 'Streaming failed' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
 }
 
 module.exports = {
   processIncident,
   detectRootCausePattern,
-  callGroqAPI
+  callGroqAPI,
+  generateRunbook,
+  answerQuery,
+  streamGroqDiagnosis
 };

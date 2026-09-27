@@ -26,6 +26,12 @@
     </div>
   </header>
 
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card"><h3>Total Incidents</h3><p id="statTotal">--</p></div>
+    <div class="stat-card"><h3>Hours Saved</h3><p id="statHours">--</p></div>
+    <div class="stat-card"><h3>Most Common Issue</h3><p id="statCommon">--</p></div>
+  </div>
+
   <!-- Main Content Dashboard Container -->
   <main class="dashboard-container">
 
@@ -110,8 +116,11 @@
         <div id="patternBanner" class="pattern-banner" style="display:none;">
           <div class="banner-icon">🧠</div>
           <div class="banner-content">
-            <h3 class="banner-title">Pattern Detected</h3>
+            <h3 class="banner-title" id="patternTitle">Pattern Detected</h3>
             <p id="patternText" class="banner-text">This looks like the Nth occurrence of database connection pool exhaustion.</p>
+            <div id="confidenceBarContainer" class="confidence-bar-container"></div>
+            <div id="affectedServices" class="affected-services"></div>
+            <button type="button" id="btnRunbook" class="btn-secondary" style="margin-top: 10px;">Generate Runbook</button>
           </div>
         </div>
 
@@ -156,6 +165,7 @@
             <h3>Similar Past Incidents Recalled</h3>
           </div>
           <div id="recalledIncidentsList" class="recalled-list"></div>
+          <div id="timelineContainer" class="timeline-container"></div>
         </div>
 
       </div>
@@ -166,6 +176,14 @@
   <!-- Bottom Section: Full Incident History Table -->
   <footer class="history-section">
     <div class="history-container">
+      <div class="chat-section">
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input id="chatInput" type="text" placeholder="Ask about incident history...">
+          <button id="chatSubmit" class="btn-primary" style="width:auto; padding: 0.5rem 1rem;">Ask</button>
+        </div>
+      </div>
+
       <div class="history-header">
         <h2>System Incident History Log</h2>
         <span id="historyCountBadge" class="badge">15 Incidents Logged</span>
@@ -193,6 +211,16 @@
       </div>
     </div>
   </footer>
+
+  <div id="runbookModal" class="modal-overlay" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Auto-Generated Runbook</h3>
+        <button id="closeModal">✕</button>
+      </div>
+      <div id="runbookContent" class="runbook-body"></div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

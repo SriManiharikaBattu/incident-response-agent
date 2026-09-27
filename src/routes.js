@@ -45,7 +45,10 @@ router.post('/incident', async (req, res) => {
         : 'Review application stack trace and verify downstream dependency status.',
       similarIncidents: result.recalledIncidentsCount,
       patternDetected: result.patternDetected ? (result.patternNotice || true) : false,
-      recalledIncidentDetails
+      recalledIncidentDetails,
+      confidenceScore: result.patternDetails?.confidenceScore,
+      affectedServices: result.patternDetails?.affectedServices,
+      urgentPatternMatch: result.urgentPatternMatch
     });
   } catch (error) {
     console.error('[API Error] POST /api/incident failed:', error.message);
@@ -92,6 +95,98 @@ router.get('/incidents', async (req, res) => {
       error: 'Internal Server Error',
       message: error.message
     });
+  }
+});
+
+router.post('/generate-runbook', async (req, res) => {
+  try {
+    const { rootCause } = req.body;
+    if (!rootCause) return res.status(400).json({error: 'rootCause required'});
+    const incidents = await memory.recallSimilar(rootCause, '');
+    const runbook = await agent.generateRunbook(rootCause, incidents);
+    res.json({ runbook });
+  } catch (err) {
+    res.status(500).json({error: err.message});
+  }
+});
+
+router.get('/timeline/:rootCause', async (req, res) => {
+  try {
+    const { rootCause } = req.params;
+    const memoryIncidents = await memory.recallSimilar(rootCause, '');
+    const dataPath = path.join(__dirname, '../data/incidents.json');
+    let fileIncidents = [];
+    if (fs.existsSync(dataPath)) {
+      fileIncidents = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    }
+    const combined = [...memoryIncidents, ...fileIncidents].filter(i => 
+      (i.rootCause || i.metadata?.rootCause) === rootCause
+    );
+    const unique = [];
+    const ids = new Set();
+    for (const inc of combined) {
+      const id = inc.incidentId || inc.metadata?.incidentId;
+      if (!ids.has(id)) {
+        ids.add(id);
+        unique.push({
+          incidentId: id,
+          date: inc.date || inc.metadata?.date,
+          serviceAffected: inc.serviceAffected || inc.metadata?.serviceAffected,
+          severity: inc.severity || inc.metadata?.severity,
+          timeToResolveMinutes: inc.timeToResolveMinutes
+        });
+      }
+    }
+    unique.sort((a, b) => new Date(a.date) - new Date(b.date));
+    res.json({ rootCause, incidents: unique });
+  } catch (err) {
+    res.status(500).json({error: err.message});
+  }
+});
+
+router.post('/ask', async (req, res) => {
+  try {
+    const { question } = req.body;
+    const recalledMemories = await memory.recallSimilar(question, '');
+    const answer = await agent.answerQuery(question, recalledMemories);
+    res.json({ answer });
+  } catch (err) {
+    res.status(500).json({error: err.message});
+  }
+});
+
+router.get('/stats', (req, res) => {
+  try {
+    const dataPath = path.join(__dirname, '../data/incidents.json');
+    let incidents = [];
+    if (fs.existsSync(dataPath)) {
+      incidents = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    }
+    const totalIncidents = incidents.length;
+    const rootCauses = {};
+    let estimatedHoursSaved = 0;
+    
+    incidents.forEach(inc => {
+      rootCauses[inc.rootCause] = (rootCauses[inc.rootCause] || 0) + 1;
+      if (inc.timeToResolveMinutes < 45) {
+        estimatedHoursSaved += 45 / 60;
+      }
+    });
+    
+    let mostCommonRootCause = '';
+    let max = 0;
+    for (const [cause, count] of Object.entries(rootCauses)) {
+      if (count > max) { max = count; mostCommonRootCause = cause; }
+    }
+    
+    res.json({
+      totalIncidents,
+      mostCommonRootCause,
+      estimatedHoursSaved: estimatedHoursSaved.toFixed(1),
+      patternMatchedCount: max
+    });
+  } catch (err) {
+    res.status(500).json({error: err.message});
   }
 });
 

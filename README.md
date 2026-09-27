@@ -152,3 +152,17 @@ Verify all API keys and connections:
 ```bash
 node scripts/diagnose.js
 ```
+
+## New Features
+
+This project includes 9 new advanced capabilities:
+
+1. **Confidence Scoring**: Evaluates the certainty of a root cause pattern (e.g. 2 matches = 60%, 5+ = 95%).
+2. **Cross-Service Pattern Insight**: Automatically identifies other services affected by the same root cause.
+3. **Auto-Generated Runbook**: `POST /api/generate-runbook` generates a step-by-step resolution markdown guide based on past memory.
+4. **Severity-Weighted Urgency**: Flags critical incidents that also have a known root cause pattern.
+5. **Streaming Diagnosis**: `GET /api/incident/stream` streams LLM tokens via SSE for instant UI feedback.
+6. **Unit Tests**: Full Jest test suites for `detectRootCausePattern` and memory fallback logic.
+7. **Memory Timeline**: `GET /api/timeline/:rootCause` constructs a timeline of past occurrences.
+8. **Natural Language Query**: `POST /api/ask` allows users to interrogate incident history using plain text.
+9. **Impact Stats Dashboard**: `GET /api/stats` aggregates key metrics like Total Incidents, Hours Saved, and Most Common Issue.
