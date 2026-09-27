@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Incident Response Agent — Powered by Hindsight Memory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation / Header -->
+  <header class="top-bar">
+    <div class="brand">
+      <div class="logo-icon">⚡</div>
+      <div class="brand-text">
+        <h1>Incident Response Agent</h1>
+        <span class="subtitle">Powered by Hindsight Biomimetic Memory</span>
+      </div>
+    </div>
+    <div class="status-indicator">
+      <span class="status-dot"></span>
+      <span class="status-text">Hindsight Graph Active</span>
+    </div>
+  </header>
+
+  <!-- Main Content Dashboard Container -->
+  <main class="dashboard-container">
+
+    <!-- Left Panel: Form Input -->
+    <section class="panel input-panel">
+      <div class="panel-header">
+        <h2>New Incident Investigation</h2>
+        <button type="button" id="btnSampleError" class="btn-secondary btn-sm">
+          ⚡ Load Connection Pool Sample
+        </button>
+      </div>
+
+      <form id="incidentForm">
+        <div class="form-group">
+          <label for="serviceAffected">Affected Service</label>
+          <select id="serviceAffected" required>
+            <option value="checkout-service">checkout-service</option>
+            <option value="payments-api">payments-api</option>
+            <option value="auth-service">auth-service</option>
+            <option value="user-service">user-service</option>
+            <option value="reporting-worker">reporting-worker</option>
+            <option value="billing-service">billing-service</option>
+            <option value="search-api">search-api</option>
+            <option value="notification-service">notification-service</option>
+            <option value="webhook-ingestion">webhook-ingestion</option>
+            <option value="analytics-pipeline">analytics-pipeline</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Severity Level</label>
+          <div class="severity-selector">
+            <label class="severity-btn p1-btn active">
+              <input type="radio" name="severity" value="P1" checked> P1 - Critical
+            </label>
+            <label class="severity-btn p2-btn">
+              <input type="radio" name="severity" value="P2"> P2 - Major
+            </label>
+            <label class="severity-btn p3-btn">
+              <input type="radio" name="severity" value="P3"> P3 - Minor
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="errorLog">Error Log / Stack Trace</label>
+          <textarea id="errorLog" rows="12" placeholder="Paste runtime stack trace, error message, or log snippet here..." required class="monospace-input"></textarea>
+        </div>
+
+        <button type="submit" id="btnSubmit" class="btn-primary btn-block">
+          <span class="btn-icon">🔍</span>
+          <span class="btn-text">Analyze Incident</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- Right Panel: Results & Pattern Recognition Area -->
+    <section class="panel results-panel">
+      <div class="panel-header">
+        <h2>Agent Intelligence & Diagnosis</h2>
+        <span id="recallBadge" class="badge badge-neutral" style="display:none;">0 Memories Recalled</span>
+      </div>
+
+      <!-- Initial Empty State -->
+      <div id="emptyState" class="state-container">
+        <div class="empty-icon">🧠</div>
+        <h3>No Active Investigation</h3>
+        <p>Submit an incident report on the left or load a sample error to recall historical patterns and root cause diagnostics.</p>
+      </div>
+
+      <!-- Loading Spinner State -->
+      <div id="loadingState" class="state-container" style="display:none;">
+        <div class="spinner"></div>
+        <h3>Querying Hindsight Memory Graph...</h3>
+        <p class="loading-subtext">Extracting facts, scoring semantic similarity, and evaluating recurring root cause patterns</p>
+      </div>
+
+      <!-- Results View -->
+      <div id="resultsContainer" style="display:none;">
+
+        <!-- Pattern Recognition Banner -->
+        <div id="patternBanner" class="pattern-banner" style="display:none;">
+          <div class="banner-icon">🧠</div>
+          <div class="banner-content">
+            <h3 class="banner-title">Pattern Detected</h3>
+            <p id="patternText" class="banner-text">This looks like the Nth occurrence of database connection pool exhaustion.</p>
+          </div>
+        </div>
+
+        <!-- Metrics Overview Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Recalled Incidents</span>
+            <span id="metricRecalled" class="metric-value">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Pattern Status</span>
+            <span id="metricPattern" class="metric-value text-accent">Single Event</span>
+          </div>
+          <div class="metric-card highlight-metric">
+            <span class="metric-label">Est. Time Saved</span>
+            <span id="metricTimeSaved" class="metric-value text-success">~45 mins</span>
+          </div>
+        </div>
+
+        <!-- Diagnosis Details -->
+        <div class="result-card">
+          <div class="card-header">
+            <span class="card-icon">📋</span>
+            <h3>Diagnosis & Assessment</h3>
+          </div>
+          <div id="diagnosisContent" class="card-body markdown-body"></div>
+        </div>
+
+        <!-- Suggested Fix Plan -->
+        <div class="result-card card-accent">
+          <div class="card-header">
+            <span class="card-icon">🛠️</span>
+            <h3>Suggested Fix & Action Plan</h3>
+          </div>
+          <div id="suggestedFixContent" class="card-body markdown-body"></div>
+        </div>
+
+        <!-- Recalled Past Incidents List -->
+        <div class="result-card">
+          <div class="card-header">
+            <span class="card-icon">📚</span>
+            <h3>Similar Past Incidents Recalled</h3>
+          </div>
+          <div id="recalledIncidentsList" class="recalled-list"></div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Section: Full Incident History Table -->
+  <footer class="history-section">
+    <div class="history-container">
+      <div class="history-header">
+        <h2>System Incident History Log</h2>
+        <span id="historyCountBadge" class="badge">15 Incidents Logged</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Incident ID</th>
+              <th>Date</th>
+              <th>Service</th>
+              <th>Severity</th>
+              <th>Root Cause</th>
+              <th>Resolved By</th>
+              <th>MTTR</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <tr>
+              <td colspan="7" class="text-center">Loading incident history...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

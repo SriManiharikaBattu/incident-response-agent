@@ -1,0 +1,227 @@
+[
+  {
+    "incidentId": "INC-2026-001",
+    "date": "2026-01-14T08:23:11Z",
+    "serviceAffected": "payments-api",
+    "severity": "P1",
+    "errorLog": "Error: TimeoutAcquiringConnectionError: Timeout acquiring connection from pool. Pool size: 20, active: 20, waiting: 142.\n    at Pool.acquire (node_modules/knex/lib/execution/internal/pool.js:45:12)\n    at Transaction.acquireConnection (node_modules/knex/lib/execution/transaction.js:89:28)\n    at async CheckoutController.processPayment (src/controllers/checkout.js:112:5)",
+    "rootCause": "database connection pool exhaustion",
+    "resolutionSteps": [
+      "Increased PostgreSQL max_connections from 100 to 300",
+      "Increased microservice connection pool size limit from 20 to 50",
+      "Patched leak in checkout transaction handler where client.release() was skipped on error"
+    ],
+    "resolvedBy": "Alex Mercer (DevOps)",
+    "timeToResolveMinutes": 45
+  },
+  {
+    "incidentId": "INC-2026-002",
+    "date": "2026-02-03T14:10:45Z",
+    "serviceAffected": "auth-service",
+    "severity": "P1",
+    "errorLog": "TimeoutError: ResourceRequest timed out after 30000ms\n    at ResourcePool.acquire (/app/node_modules/generic-pool/lib/ResourcePool.js:88:18)\n    at Pool.acquire (/app/node_modules/generic-pool/lib/Pool.js:214:16)\n    at QueryBuilder.execute (/app/src/db/orm.js:77:24)\n    at async SessionStore.validateToken (/app/src/services/session.js:45:12)",
+    "rootCause": "database connection pool exhaustion",
+    "resolutionSteps": [
+      "Identified unindexed query on sessions table causing long-running queries holding connections",
+      "Added index idx_sessions_user_token",
+      "Restarted auth-service deployment pods to flush hung connections"
+    ],
+    "resolvedBy": "Priya Sharma (Backend Lead)",
+    "timeToResolveMinutes": 35
+  },
+  {
+    "incidentId": "INC-2026-003",
+    "date": "2026-02-18T19:05:00Z",
+    "serviceAffected": "user-service",
+    "severity": "P2",
+    "errorLog": "sequelize.ConnectionAcquireTimeoutError: Operation timeout: database connection pool exhausted. Available: 0, Max: 15, Waiting: 89\n    at Pool._acquire (/app/node_modules/sequelize/lib/dialects/abstract/connection-manager.js:284:14)\n    at async UserProfile.findByPk (/app/src/models/user.js:210:9)",
+    "rootCause": "database connection pool exhaustion",
+    "resolutionSteps": [
+      "Temporarily scaled user-service instances",
+      "Reconfigured connection pool idleTimeoutMillis from 30000 to 5000",
+      "Fixed missing await on db.close() in batch background cron job"
+    ],
+    "resolvedBy": "Carlos Gomez (SRE)",
+    "timeToResolveMinutes": 50
+  },
+  {
+    "incidentId": "INC-2026-004",
+    "date": "2026-03-01T11:45:30Z",
+    "serviceAffected": "reporting-worker",
+    "severity": "P2",
+    "errorLog": "FATAL: ConnectionPoolExhausted: Unable to acquire JDBC Connection from HikariPool-1 after 30000ms (total=10, active=10, idle=0, waiting=64)\n\tat com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:217)\n\tat com.saas.reporting.dao.ReportDao.generateDailySummary(ReportDao.java:142)",
+    "rootCause": "database connection pool exhaustion",
+    "resolutionSteps": [
+      "Adjusted HikariCP connectionTimeout and maxPoolSize",
+      "Optimized complex aggregation query in generateDailySummary to use read-replica",
+      "Added connection pool metrics alert to Prometheus"
+    ],
+    "resolvedBy": "David Kim (Data Eng)",
+    "timeToResolveMinutes": 40
+  },
+  {
+    "incidentId": "INC-2026-005",
+    "date": "2026-03-12T04:12:00Z",
+    "serviceAffected": "notification-service",
+    "severity": "P3",
+    "errorLog": "Redis::TimeoutError: Connection timed out while reading from redis://cache-cluster.internal:6379/0\n    at RedisClient.read_response (/app/vendor/bundle/gems/redis-4.8.0/lib/redis/client.rb:271)\n    at Dispatcher.send_push (/app/app/services/dispatcher.rb:88)",
+    "rootCause": "Redis cluster high memory usage causing eviction and latency spikes",
+    "resolutionSteps": [
+      "Flushed expired transient notification keys",
+      "Scaled up ElastiCache Redis node instance type from cache.m5.large to cache.m5.xlarge",
+      "Updated TTL policy for push notification payload caches"
+    ],
+    "resolvedBy": "Sarah Chen (Infrastructure)",
+    "timeToResolveMinutes": 25
+  },
+  {
+    "incidentId": "INC-2026-006",
+    "date": "2026-03-25T16:30:15Z",
+    "serviceAffected": "auth-service",
+    "severity": "P1",
+    "errorLog": "jsonwebtoken.TokenExpiredError: jwt expired\n    at JsonWebTokenError.module.exports [as verify] (/app/node_modules/jsonwebtoken/verify.js:152:21)\n    at AuthMiddleware.authenticate (/app/src/middleware/auth.js:34:10)\n[CRITICAL] 100% of API requests failing authentication due to clock drift on node-worker-04",
+    "rootCause": "NTP daemon synchronization failure on Kubernetes node causing JWT validation errors",
+    "resolutionSteps": [
+      "Resynced system time using chronyd on node-worker-04",
+      "Replaced node in Kubernetes pool",
+      "Configured node clock drift monitoring alert"
+    ],
+    "resolvedBy": "Alex Mercer (DevOps)",
+    "timeToResolveMinutes": 20
+  },
+  {
+    "incidentId": "INC-2026-007",
+    "date": "2026-04-05T09:14:22Z",
+    "serviceAffected": "billing-service",
+    "severity": "P1",
+    "errorLog": "Stripe::APIConnectionError: Could not connect to Stripe API (https://api.stripe.com/v1/charges). SSL_connect returned=1 errno=0 state=error: certificate verify failed (certificate has expired)\n    at StripeClient.execute_request (/app/lib/stripe_client.rb:145)",
+    "rootCause": "Outdated CA root certificates in Docker container base image",
+    "resolutionSteps": [
+      "Updated ca-certificates package across base Alpine Docker images",
+      "Redeployed billing-service pods with updated cert store",
+      "Added automated certificate freshness check to CI pipeline"
+    ],
+    "resolvedBy": "Elena Rostova (SecOps)",
+    "timeToResolveMinutes": 30
+  },
+  {
+    "incidentId": "INC-2026-008",
+    "date": "2026-04-18T22:01:10Z",
+    "serviceAffected": "search-api",
+    "severity": "P2",
+    "errorLog": "Elasticsearch::Transport::Transport::Errors::ServiceUnavailable: [503] Elasticsearch cluster state is RED. 4 primary shards unassigned.\n    at ElasticsearchClient.search (/app/src/search_service.py:94)\n    at SearchHandler.get (/app/src/api/search.py:42)",
+    "rootCause": "Disk space saturation on Elasticsearch node-3 triggering read-only watermark",
+    "resolutionSteps": [
+      "Expanded EBS volume size from 200GB to 500GB",
+      "Ran cluster reroute to reassign unassigned shards",
+      "Configured log rotation and index lifecycle management (ILM) policies"
+    ],
+    "resolvedBy": "Carlos Gomez (SRE)",
+    "timeToResolveMinutes": 60
+  },
+  {
+    "incidentId": "INC-2026-009",
+    "date": "2026-05-02T13:40:05Z",
+    "serviceAffected": "webhook-ingestion",
+    "severity": "P2",
+    "errorLog": "AMQPDefaultConsumer.handleDelivery: Channel shutdown exception: com.rabbitmq.client.AlreadyClosedException: connection is already closed due to stream end\n    at com.saas.webhook.RabbitMQListener.consume(RabbitMQListener.java:88)\n[WARN] Backlog increased to 450,000 messages in queue 'webhooks_incoming'",
+    "rootCause": "RabbitMQ node memory high watermark reached, blocking publishers",
+    "resolutionSteps": [
+      "Purged dead-letter queue backlogs",
+      "Increased RabbitMQ vm_memory_high_watermark limit",
+      "Scaled webhook consumer worker deployment replicas from 4 to 12"
+    ],
+    "resolvedBy": "Priya Sharma (Backend Lead)",
+    "timeToResolveMinutes": 45
+  },
+  {
+    "incidentId": "INC-2026-010",
+    "date": "2026-05-19T07:55:40Z",
+    "serviceAffected": "frontend-cdn",
+    "severity": "P3",
+    "errorLog": "HTTP/2 502 Bad Gateway - Cloudflare CDN unable to establish TLS handshake with origin origin.saas.com:443. Error: SSL_handshake_failed (Cipher mismatch)",
+    "rootCause": "Incompatible TLS 1.3 cipher suite configuration during ingress gateway deployment update",
+    "resolutionSteps": [
+      "Reverted ingress NGINX TLS configuration to support TLS 1.2 and modern cipher suites",
+      "Reloaded NGINX ingress controller configuration",
+      "Updated staging deployment checklist for TLS policy changes"
+    ],
+    "resolvedBy": "Sarah Chen (Infrastructure)",
+    "timeToResolveMinutes": 15
+  },
+  {
+    "incidentId": "INC-2026-011",
+    "date": "2026-06-04T18:12:30Z",
+    "serviceAffected": "file-export-service",
+    "severity": "P2",
+    "errorLog": "java.lang.OutOfMemoryError: Java heap space\n\tat com.saas.exporter.pdf.PdfGenerator.renderLargeTable(PdfGenerator.java:312)\n\tat com.saas.exporter.worker.ExportTaskConsumer.process(ExportTaskConsumer.java:95)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)",
+    "rootCause": "Unbounded PDF generation loading full 500k row dataset into JVM memory",
+    "resolutionSteps": [
+      "Implemented chunked streaming for PDF generation",
+      "Increased JVM max heap size (-Xmx) from 2GB to 6GB",
+      "Added row limit (max 50,000 rows) for synchronous PDF export requests"
+    ],
+    "resolvedBy": "David Kim (Data Eng)",
+    "timeToResolveMinutes": 55
+  },
+  {
+    "incidentId": "INC-2026-012",
+    "date": "2026-06-21T10:05:18Z",
+    "serviceAffected": "payments-api",
+    "severity": "P1",
+    "errorLog": "Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client\n    at ServerResponse.setHeader (node:_http_outgoing:648:11)\n    at Express.res.send (/app/node_modules/express/lib/response.js:158:12)\n    at /app/src/routes/payment.js:84:11\n[CRITICAL] Double callback execution causing node process crashes on payment webhooks",
+    "rootCause": "Unhandled promise rejection in async middleware leading to duplicate response calls and unhandled node exception",
+    "resolutionSteps": [
+      "Added return statement before secondary res.json() call in webhook handler",
+      "Wrapped async express routes in standard async-handler wrapper",
+      "Redeployed payment-api service"
+    ],
+    "resolvedBy": "Priya Sharma (Backend Lead)",
+    "timeToResolveMinutes": 25
+  },
+  {
+    "incidentId": "INC-2026-013",
+    "date": "2026-07-08T15:20:00Z",
+    "serviceAffected": "analytics-pipeline",
+    "severity": "P3",
+    "errorLog": "org.apache.kafka.common.errors.RecordTooLargeException: The request included a message larger than the max message size the server will accept (max_message_bytes=1048576, record_size=3451208)",
+    "rootCause": "Telemetry payload batching bug producing single Kafka messages > 3MB",
+    "resolutionSteps": [
+      "Updated Kafka producer message size limits",
+      "Adjusted client side batching max.request.size to 1MB",
+      "Added payload compressor prior to publishing to Kafka topic"
+    ],
+    "resolvedBy": "David Kim (Data Eng)",
+    "timeToResolveMinutes": 30
+  },
+  {
+    "incidentId": "INC-2026-014",
+    "date": "2026-07-29T21:44:50Z",
+    "serviceAffected": "user-service",
+    "severity": "P2",
+    "errorLog": "pymongo.errors.ServerSelectionTimeoutError: mongo-primary.internal:27017: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1129)",
+    "rootCause": "MongoDB replica set TLS certificate auto-renewal failed to reload cert on primary node",
+    "resolutionSteps": [
+      "Triggered MongoDB server certificate reload via mongosh",
+      "Updated TLS cert renewal hook script to restart mongod gracefully",
+      "Verified replica set health and primary election status"
+    ],
+    "resolvedBy": "Elena Rostova (SecOps)",
+    "timeToResolveMinutes": 35
+  },
+  {
+    "incidentId": "INC-2026-015",
+    "date": "2026-08-14T12:00:00Z",
+    "serviceAffected": "integrations-gateway",
+    "severity": "P2",
+    "errorLog": "golang.org/x/net/context.DeadlineExceeded: context deadline exceeded during outbound HTTP call to https://api.thirdparty-crm.com/v2/contacts\n    at github.com/saas/integrations/client.(*Client).Do (client.go:114)\n[WARN] High rate of 504 Gateway Timeouts returned to enterprise tenant webhooks",
+    "rootCause": "Third-party CRM API outage causing connection pool blocking and worker goroutine leaks",
+    "resolutionSteps": [
+      "Enabled circuit breaker policy (gobreaker) on third-party integration client",
+      "Reduced outbound HTTP timeout from 60s to 5s",
+      "Added fallback queue for failed third-party CRM webhook deliveries"
+    ],
+    "resolvedBy": "Alex Mercer (DevOps)",
+    "timeToResolveMinutes": 40
+  }
+]
